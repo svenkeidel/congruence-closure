@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts, OverloadedStrings #-}
 module Logic.CongruenceClosure where
 
 import           Prelude hiding (any)
@@ -13,6 +13,7 @@ import           Control.Monad.Writer hiding (unless)
 
 import           Data.Foldable (traverse_)
 import           Data.Maybe (fromJust)
+import           Data.Text (Text)
 
 import qualified PropLogic as PL
 
@@ -49,7 +50,7 @@ decisionProcedure (Conjunctions conjunctions) = runUnionFind $ do
     else Satisfiable
 
 merge :: (Functor m, MonadWriter [Logging] m)
-      => Graph -> (Vert,Vert) -> UnionFindT String m ()
+      => Graph -> (Vert,Vert) -> UnionFindT Text m ()
 merge gr (u,v) = do
 
   tell [Merge u v]
@@ -76,13 +77,13 @@ merge gr (u,v) = do
     predOfAllVertEquivTo vert =
       concatMap (predecessors gr) <$> filterM (equivalent vert) (vertices gr)
 
-notEquivalentButCongruent :: (Functor m,Monad m) => Graph -> (Vert,Vert) -> UnionFindT String m Bool
+notEquivalentButCongruent :: (Functor m,Monad m) => Graph -> (Vert,Vert) -> UnionFindT Text m Bool
 notEquivalentButCongruent gr (x,y) = do
   notEquiv <- not <$> equivalent x y
   cong <- congruent gr x y
   return $ notEquiv && cong
 
-congruent :: (Functor m,Monad m) => Graph -> Vert -> Vert -> UnionFindT String m Bool
+congruent :: (Functor m,Monad m) => Graph -> Vert -> Vert -> UnionFindT Text m Bool
 congruent gr x y = do
   if outDegree gr x /= outDegree gr y
     then return False

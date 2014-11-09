@@ -22,11 +22,12 @@ import           Data.Foldable (traverse_)
 import           Data.Traversable (traverse)
 import           Data.Graph.Inductive hiding (Graph)
 import           Data.Graph.Inductive.NodeMap
+import           Data.Text(Text)
 
 newtype Conjunctions = Conjunctions [Equation]
 data Equation = Equal Term Term
               | NotEqual Term Term
-data Term = Function String [Term]
+data Term = Function Text [Term]
   deriving (Eq,Ord)
 
 data Satisfiability = Satisfiable | Unsatisfiable
@@ -41,8 +42,8 @@ infix 4 ===
 infix 4 =/=
 
 instance Show Term where
-  show (Function sym []) = sym
-  show (Function sym childs) = sym ++ show childs
+  show (Function sym []) = show sym
+  show (Function sym childs) = show sym ++ show childs
 
 class Conjunction a where
   (/\) :: Equation -> a -> Conjunctions
@@ -54,17 +55,17 @@ instance Conjunction Equation where
 instance Conjunction Conjunctions where
   (/\) e1 (Conjunctions e2) = Conjunctions (e1:e2)
 
-newtype Graph = Graph (NodeMap Term,Gr (Point String) Int)
-newtype Vert = Vert (LNode (Point String))
+newtype Graph = Graph (NodeMap Term,Gr (Point Text) Int)
+newtype Vert = Vert (LNode (Point Text))
 
 interleave :: [(a,a)] -> [a]
 interleave ((x,y):rest) = x : y : interleave rest
 interleave []           = []
 
-termGraph :: (Functor m,Monad m) => [Equation] -> UnionFindT String m Graph
+termGraph :: (Functor m,Monad m) => [Equation] -> UnionFindT Text m Graph
 termGraph = termGraph' . interleave . terms
 
-termGraph' :: (Functor m,Monad m) => [Term] -> UnionFindT String m Graph
+termGraph' :: (Functor m,Monad m) => [Term] -> UnionFindT Text m Graph
 termGraph' ts = do
   let (nodeMap, gr) = snd $ run empty $ traverse_ insertTerm ts
   vars <- traverse genVars (labNodes gr)
@@ -87,7 +88,7 @@ vertex gr@(Graph (nodeMap,_)) term =
   let (node,_) = mkNode_ nodeMap term
   in label gr node
 
-graph :: Graph -> Gr (Point String) Int
+graph :: Graph -> Gr (Point Text) Int
 graph (Graph (_,gr)) = gr
 
 vertices :: Graph -> [Vert]
@@ -99,10 +100,10 @@ outDegree (graph -> gr) (Vert (x,_)) = outdeg gr x
 label :: Graph -> Node -> Vert
 label (graph -> gr) a = Vert (a, fromJust (lab gr a))
 
-equivalent :: (Functor m, Monad m) => Vert -> Vert -> UnionFindT String m Bool
+equivalent :: (Functor m, Monad m) => Vert -> Vert -> UnionFindT Text m Bool
 equivalent (Vert (_,x)) (Vert (_,y)) = U.equivalent x y
 
-union :: (Functor m, Monad m) => Vert -> Vert -> UnionFindT String m ()
+union :: (Functor m, Monad m) => Vert -> Vert -> UnionFindT Text m ()
 union (Vert (_,x)) (Vert (_,y)) = U.union x y
 
 predecessors :: Graph -> Vert -> [Vert]
