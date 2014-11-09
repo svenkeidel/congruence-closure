@@ -34,13 +34,25 @@ data Satisfiability = Satisfiable | Unsatisfiable
 
 (===) :: Term -> Term -> Equation
 (===) = Equal
+infix 4 ===
 
 (=/=) :: Term -> Term -> Equation
 (=/=) = NotEqual
+infix 4 =/=
 
 instance Show Term where
   show (Function sym []) = sym
   show (Function sym childs) = sym ++ show childs
+
+class Conjunction a where
+  (/\) :: Equation -> a -> Conjunctions
+  infixr 3 /\
+
+instance Conjunction Equation where
+  (/\) e1 e2 = Conjunctions [e1, e2]
+
+instance Conjunction Conjunctions where
+  (/\) e1 (Conjunctions e2) = Conjunctions (e1:e2)
 
 newtype Graph = Graph (NodeMap Term,Gr (Point String) Int)
 newtype Vert = Vert (LNode (Point String))

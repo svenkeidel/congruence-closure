@@ -34,7 +34,7 @@ figure1 =
   -- We show that the negation is unsatisfiable
   -- f(a,b) == a /\ f(f(a,b),b) /= a
 
-  in decisionProcedure (Conjunctions [abf === a, abfbf =/= a])
+  in decisionProcedure $ abf === a /\ abfbf =/= a
 
 decisionProcedure :: (Functor m,MonadWriter [Logging] m)
                   => Conjunctions -> m Satisfiability
