@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts, OverloadedLists, OverloadedStrings, TupleSections #-}
 module Logic.CongruenceClosure where
 
 import           Prelude hiding (any)
@@ -11,6 +11,7 @@ import qualified Control.Monad.Trans.UnionFind as U
 import           Control.Monad.State hiding (unless)
 import           Control.Monad.Writer hiding (unless)
 
+import           Data.Sequence (Seq)
 import           Data.Foldable (traverse_)
 import           Data.Maybe (fromJust)
 import           Data.Text (Text)
@@ -21,39 +22,59 @@ import           Text.Printf
 
 import           Logic.Internal
 
-figure1 :: (Functor m,MonadWriter [Logging] m) => m Satisfiability
+-- Use `runDecisionProcedure figure1` to print out traces of the decision
+-- procedure and show the satisfiability of the formula
+
+figure1 :: (Functor m,MonadWriter (Seq Logging) m) => m Satisfiability
 figure1 =
 
   let a = Function "a" []
       b = Function "b" []
-      abf = Function "f" [a,b]
-      abfbf = Function "f" [abf,b]
+      f x y = Function "f" [x,y]
 
   -- f(a,b) == a -> f(f(a,b),b) == a
   -- f(a,b) /= a \/ f(f(a,b),b) == a
 
-  -- We show that the negation is unsatisfiable
+  -- we show the validity of this formula by showing the unsatisfiability of its
+  -- negation
   -- f(a,b) == a /\ f(f(a,b),b) /= a
 
-  in decisionProcedure $ abf === a /\ abfbf =/= a
+  in decisionProcedure $ f a b === a /\ f (f a b) b =/= a
 
-decisionProcedure :: (Functor m,MonadWriter [Logging] m)
+figure2 :: (Functor m,MonadWriter (Seq Logging) m) => m Satisfiability
+figure2 =
+  let
+      a = Function "a" []
+      f x = Function "f" [x]
+
+  -- [f(f(f(a))) == a /\ f(f(f(f(f(a))))) == a] -> f(a) == a
+  -- f(f(f(a))) /= a \/ f(f(f(f(f(a))))) /= a \/ f(a) == a
+
+  -- we show the validity of this formula by showing the unsatisfiability of its
+  -- negation
+  -- f(f(f(a))) == a /\ f(f(f(f(f(a))))) == a /\ f(a) /= a
+
+  in decisionProcedure $ f(f(f a)) === a
+                      /\ f(f(f(f(f a)))) === a
+                      /\ f a =/= a
+
+decisionProcedure :: (Functor m,MonadWriter (Seq Logging) m)
                   => Conjunctions -> m Satisfiability
 decisionProcedure (Conjunctions conjunctions) = runUnionFind $ do
-  gr <- termGraph conjunctions
-  let (pos,neg) = partition gr positive conjunctions
-  traverse_ (merge gr) pos
+    gr <- termGraph conjunctions
+    let (pos,neg) = partition gr positive conjunctions
+    traverse_ (merge gr) pos
 
-  anyEquiv <- any equivalent neg
-  return $ if anyEquiv
-    then Unsatisfiable
-    else Satisfiable
+    anyEquiv <- any equivalent neg
+    return $ if anyEquiv
+      then Unsatisfiable
+      else Satisfiable
 
-merge :: (Functor m, MonadWriter [Logging] m)
+merge :: (Functor m, MonadWriter (Seq Logging) m)
       => Graph -> (Vert,Vert) -> UnionFindT Text m ()
 merge gr (u,v) = do
 
-  tell [Merge u v]
+  tell [Merge gr u v]
 
   -- 1 If FIND(u) = FIND(v), then return
   unless (equivalent u v) $ do
@@ -63,10 +84,12 @@ merge gr (u,v) = do
     pu <- predOfAllVertEquivTo u
     pv <- predOfAllVertEquivTo v
 
-    tell [ Pu pu, Pv pv ]
+    tell [ Pu gr pu, Pv gr pv ]
 
     -- 3 Call UNION(u, v)
     union u v
+
+    tell [ Union gr u v ]
 
     -- 4 For each pair (x, y) such that x in Pu, and y in Pv,
     -- if FIND(x) /= FIND(y) but CONGRUENT(x, y) = TRUE, them merge(x,y)

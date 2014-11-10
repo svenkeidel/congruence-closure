@@ -1,6 +1,7 @@
 {-# LANGUAGE ViewPatterns
            , FlexibleContexts
            , FlexibleInstances
+           , TypeFamilies
            , UndecidableInstances
            , MultiParamTypeClasses
            #-}
@@ -17,12 +18,16 @@ import           Control.Monad.Writer hiding (unless)
 
 import           Data.Ord
 import qualified Data.List as L
+import           Data.Sequence (Seq,ViewL(..))
+import qualified Data.Sequence as S
 import           Data.Maybe (fromJust)
 import           Data.Foldable (traverse_)
 import           Data.Traversable (traverse)
 import           Data.Graph.Inductive hiding (Graph)
 import           Data.Graph.Inductive.NodeMap
-import           Data.Text(Text)
+import           Data.Text(Text,unpack)
+
+import           GHC.Exts
 
 newtype Conjunctions = Conjunctions [Equation]
 data Equation = Equal Term Term
@@ -42,8 +47,9 @@ infix 4 ===
 infix 4 =/=
 
 instance Show Term where
-  show (Function sym []) = show sym
-  show (Function sym childs) = show sym ++ show childs
+  show (Function sym []) = unpack sym
+  show (Function sym childs) =
+    unpack sym ++ "(" ++ concat (L.intersperse "," (map show childs)) ++ ")"
 
 class Conjunction a where
   (/\) :: Equation -> a -> Conjunctions
@@ -55,8 +61,8 @@ instance Conjunction Equation where
 instance Conjunction Conjunctions where
   (/\) e1 (Conjunctions e2) = Conjunctions (e1:e2)
 
-newtype Graph = Graph (NodeMap Term,Gr (Point Text) Int)
-newtype Vert = Vert (LNode (Point Text))
+newtype Graph = Graph (NodeMap Term,Gr (Text,Point Text) Int)
+newtype Vert = Vert (LNode (Text,Point Text))
 
 interleave :: [(a,a)] -> [a]
 interleave ((x,y):rest) = x : y : interleave rest
@@ -81,14 +87,14 @@ termGraph' ts = do
 
     genVars (node, Function name _) = do
       var <- fresh name
-      return (node,var)
+      return (node,(name,var))
 
 vertex :: Graph -> Term -> Vert
 vertex gr@(Graph (nodeMap,_)) term =
   let (node,_) = mkNode_ nodeMap term
   in label gr node
 
-graph :: Graph -> Gr (Point Text) Int
+graph :: Graph -> Gr (Text,Point Text) Int
 graph (Graph (_,gr)) = gr
 
 vertices :: Graph -> [Vert]
@@ -101,10 +107,10 @@ label :: Graph -> Node -> Vert
 label (graph -> gr) a = Vert (a, fromJust (lab gr a))
 
 equivalent :: (Functor m, Monad m) => Vert -> Vert -> UnionFindT Text m Bool
-equivalent (Vert (_,x)) (Vert (_,y)) = U.equivalent x y
+equivalent (Vert (_,(_,x))) (Vert (_,(_,y))) = U.equivalent x y
 
 union :: (Functor m, Monad m) => Vert -> Vert -> UnionFindT Text m ()
-union (Vert (_,x)) (Vert (_,y)) = U.union x y
+union (Vert (_,(_,x))) (Vert (_,(_,y))) = U.union x y
 
 predecessors :: Graph -> Vert -> [Vert]
 predecessors gr (Vert (x,_)) = label gr <$> pre (graph gr) x
@@ -118,6 +124,17 @@ terms = map go
     go e = case e of
       Equal t1 t2    -> (t1,t2)
       NotEqual t1 t2 -> (t1,t2)
+
+term :: Graph -> Vert -> Term
+term (Graph (_,gr)) (Vert (n,_)) = go gr n
+  where
+    go :: Gr (Text,a) Int -> Node -> Term
+    go gr n =
+      case match n gr of
+        (Nothing,_) -> error "context is Nothing"
+        (Just (_,_,(sym,_),out),gr') ->
+          Function sym $ map (go gr') $ sortEdges out
+    sortEdges out = map snd $ L.sortBy (comparing fst) out
 
 partition :: Graph -> (Equation -> Bool) -> [Equation] -> ([(Vert,Vert)],[(Vert,Vert)])
 partition gr f equations =
@@ -158,7 +175,26 @@ any f ((a,b):abs) = do
     else any f abs
 
 data Logging
-  = Merge Vert Vert
-  | Pu [Vert]
-  | Pv [Vert]
-  deriving Show
+  = Merge Graph Vert Vert
+  | Pu Graph [Vert]
+  | Pv Graph [Vert]
+  | Union Graph Vert Vert
+
+instance Show Logging where
+  show (Merge gr u v) = "merge " ++ show (term gr u) ++ " " ++ show (term gr v)
+  show (Union gr u v) = "union " ++ show (term gr u) ++ " " ++ show (term gr v)
+  show (Pu gr pu) = "pu " ++ show (map (term gr) pu)
+  show (Pv gr pv) = "pv " ++ show (map (term gr) pv)
+
+runDecisionProcedure :: Writer (Seq Logging) Satisfiability -> IO ()
+runDecisionProcedure decision = do
+  let (sat,logs) = runWriter decision
+  putStrLn $ unlines $ map show $ toList logs
+  putStrLn $ show sat
+
+instance IsList (Seq a) where
+  type Item (Seq a) = a
+  fromList = S.fromList
+  toList s = case S.viewl s of
+    EmptyL  -> []
+    x :< xs -> x : toList xs
