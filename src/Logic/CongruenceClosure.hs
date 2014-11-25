@@ -73,27 +73,18 @@ decisionProcedure (Conjunctions conjunctions) = runUnionFind $ do
 merge :: (Functor m, MonadWriter (Seq Logging) m)
       => Graph -> (Vert,Vert) -> UnionFindT Text m ()
 merge gr (u,v) = do
-
-  tell [Merge gr u v]
-
-  -- 1 If FIND(u) = FIND(v), then return
+  tell [ Merge gr u v ]
   unless (equivalent u v) $ do
     
-    -- 2 Let Pu, be the set of all predecessors of all verttces equivalent to u,
-    -- and Pv the set of all predecessors of all vertices equivalent to v.
     pu <- predOfAllVertEquivTo u
     pv <- predOfAllVertEquivTo v
-
     tell [ Pu gr pu, Pv gr pv ]
 
-    -- 3 Call UNION(u, v)
     union u v
-
     tell [ Union gr u v ]
 
-    -- 4 For each pair (x, y) such that x in Pu, and y in Pv,
-    -- if FIND(x) /= FIND(y) but CONGRUENT(x, y) = TRUE, them merge(x,y)
-    needsMerging <- filterM (notEquivalentButCongruent gr) [(x,y) | x <- pu, y <- pv]
+    needsMerging <- filterM (notEquivalentButCongruent gr)
+                            [ (x,y) | x <- pu, y <- pv ]
     traverse_ (merge gr) needsMerging
 
   where
@@ -110,4 +101,6 @@ congruent :: (Functor m,Monad m) => Graph -> Vert -> Vert -> UnionFindT Text m B
 congruent gr x y = do
   if outDegree gr x /= outDegree gr y
     then return False
-    else and <$> zipWithM equivalent (successors gr x) (successors gr y)
+    else and <$> zipWithM equivalent
+                    (successors gr x)
+                    (successors gr y)
