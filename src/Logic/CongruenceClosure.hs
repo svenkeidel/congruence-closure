@@ -15,8 +15,8 @@ import           Data.Sequence (Seq)
 import           Data.Foldable (traverse_)
 import           Data.Maybe (fromJust)
 import           Data.Text (Text)
-
-import qualified PropLogic as PL
+import           Data.Graph.Inductive (LNode,lab,labNodes)
+import qualified Data.Map as M
 
 import           Text.Printf
 
@@ -58,6 +58,20 @@ figure2 =
                       /\ f(f(f(f(f a)))) === a
                       /\ f a =/= a
 
+example3 :: (Functor m,MonadWriter (Seq Logging) m) => m Satisfiability
+example3 =
+  let a = Function "a" []
+      a' = Function "a'" []
+      a'' = Function "a''" []
+      b = Function "b" []
+      c = Function "c" []
+
+  in decisionProcedure $ a'' === a'
+                      /\ a' === a
+                      /\ a =/= b
+                      /\ b =/= c
+                      /\ c =/= a
+
 decisionProcedure :: (Functor m,MonadWriter (Seq Logging) m)
                   => Conjunctions -> m Satisfiability
 decisionProcedure (Conjunctions conjunctions) = runUnionFind $ do
@@ -66,16 +80,18 @@ decisionProcedure (Conjunctions conjunctions) = runUnionFind $ do
     traverse_ (merge gr) pos
 
     anyEquiv <- any equivalent neg
-    return $ if anyEquiv
-      then Unsatisfiable
-      else Satisfiable
+    if anyEquiv
+      then return Unsatisfiable
+      else constructModel gr
 
 merge :: (Functor m, MonadWriter (Seq Logging) m)
-      => Graph -> (Vert,Vert) -> UnionFindT Text m ()
+      => Graph -> (Vert,Vert) -> UnionFindT (LNode Text) m ()
 merge gr (u,v) = do
   tell [ Merge gr u v ]
   unless (equivalent u v) $ do
     
+    -- 2 Let Pu, be the set of all predecessors of all vertices equivalent to u,
+    -- and Pv the set of all predecessors of all vertices equivalent to v.
     pu <- predOfAllVertEquivTo u
     pv <- predOfAllVertEquivTo v
     tell [ Pu gr pu, Pv gr pv ]
@@ -91,16 +107,23 @@ merge gr (u,v) = do
     predOfAllVertEquivTo vert =
       concatMap (predecessors gr) <$> filterM (equivalent vert) (vertices gr)
 
-notEquivalentButCongruent :: (Functor m,Monad m) => Graph -> (Vert,Vert) -> UnionFindT Text m Bool
+notEquivalentButCongruent :: (Functor m,Monad m) => Graph -> (Vert,Vert) -> UnionFindT (LNode Text) m Bool
 notEquivalentButCongruent gr (x,y) = do
   notEquiv <- not <$> equivalent x y
   cong <- congruent gr x y
   return $ notEquiv && cong
 
-congruent :: (Functor m,Monad m) => Graph -> Vert -> Vert -> UnionFindT Text m Bool
+congruent :: (Functor m,Monad m) => Graph -> Vert -> Vert -> UnionFindT (LNode Text) m Bool
 congruent gr x y = do
   if outDegree gr x /= outDegree gr y
     then return False
-    else and <$> zipWithM equivalent
-                    (successors gr x)
-                    (successors gr y)
+    else and <$> zipWithM equivalent (successors gr x) (successors gr y)
+
+constructModel :: Monad m => Graph -> UnionFindT (LNode Text) m Satisfiability
+constructModel g@(Graph (_,gr)) = do
+  psi <- forM (labNodes gr) $ \v@(vn,(_,vp)) -> do
+    rp <- U.repr vp
+    (rn,rt) <- U.descriptor rp
+    let r = fromJust (lab gr rn)
+    return (term g (Vert v), term g (Vert (rn,(rt,rp))))
+  return $ Satisfiable (M.fromList psi)
