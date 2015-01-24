@@ -1,0 +1,10 @@
+merge f(a,b) a
+pu [f(f(a,b),b)]
+pv [f(a,b)]
+union f(a,b) a
+merge f(f(a,b),b) f(a,b)
+pu []
+pv [f(f(a,b),b),f(a,b)]
+union f(f(a,b),b) f(a,b)
+
+Unsatisfiable

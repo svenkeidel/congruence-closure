@@ -1,0 +1,23 @@
+merge f(f(f(a))) a
+pu [f(f(f(f(a))))]
+pv [f(a)]
+union f(f(f(a))) a
+merge f(f(f(f(a)))) f(a)
+pu [f(f(f(f(f(a)))))]
+pv [f(f(a))]
+union f(f(f(f(a)))) f(a)
+merge f(f(f(f(f(a))))) f(f(a))
+pu []
+pv [f(f(f(a)))]
+union f(f(f(f(f(a))))) f(f(a))
+merge f(f(f(f(f(a))))) a
+pu [f(f(f(a)))]
+pv [f(f(f(f(a)))),f(a)]
+union f(f(f(f(f(a))))) a
+merge f(f(f(a))) f(f(f(f(a))))
+pu [f(f(f(f(a)))),f(f(f(a))),f(a)]
+pv [f(f(a)),f(f(f(f(f(a)))))]
+union f(f(f(a))) f(f(f(f(a))))
+merge f(f(f(a))) f(a)
+
+Unsatisfiable

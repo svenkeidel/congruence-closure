@@ -1,0 +1,10 @@
+merge a d
+pu []
+pv []
+union a d
+merge d e
+pu []
+pv []
+union d e
+
+Satisfiable (fromList [(a,e),(b,b),(c,c),(d,e),(e,e)])
