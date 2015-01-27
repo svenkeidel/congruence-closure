@@ -72,7 +72,7 @@
       \item Let $G = (V,E)$ be a directed graph.
       \item Let $\lambda(v)$ be the label of a vertex $v$.
       \item Let $\sigma(v)$ be the out degree of a vertex $v$.
-      \item Leaving edges are ordered. Let $v[i]$ denote the $i$th successor of
+      \item Outgoing edges are ordered. Let $v[i]$ denote the $i$th successor of
         $v$, where $1 \leq i \leq \sigma(v)$.
       \item Multiple edges are allowed, so it is possible that $v[i] = v[j]$ for
         $i \neq j$.
@@ -120,8 +120,10 @@
           \item $\sigma(u) = \sigma(v)$ and
           \item forall $i$ s.t. $1 \leq i \leq \sigma(u)$, $R(u[i],v[i])$.
         \end{itemize}
+      \only<4->{
       \item $R$ is \textit{closed under congruences} if, forall vertices $u$ and
         $v$ s.t. $u$ and $v$ are \textit{congruent under $R$}, $R(u,v)$.
+      }
     \end{itemize}
   \end{Definition}
 
@@ -150,7 +152,7 @@
     \path [equality,beameralert=3] (v3) edge node [above] {$R$} (v4);
     \path [equality,beameralert=3] (v5) edge node [above] {$R$} (v6);
 
-    \path [equality,beameralert=4] (v1) edge node [above] {$R$} (v2);
+    \path [equality,beameralert=5] (v1) edge node [above] {$R$} (v2);
 
   \end{tikzpicture}
 \end{frame}
@@ -182,7 +184,7 @@
     \begin{column}{0.5\textwidth}
       \begin{enumerate}
         \item if $\sigma(u) \neq \sigma(v)$, then return $\mathbf{false}$
-        \item for $1 \leq i \leq \sigma(u)$, if $\mathbf{find}(u[0]) \neq \mathbf{find}(v[t])$,
+        \item for $1 \leq i \leq \sigma(u)$, if $\mathbf{find}(u[i]) \neq \mathbf{find}(v[i])$,
           then return $\mathbf{false}$
         \item return $\mathbf{true}$
       \end{enumerate}
@@ -215,7 +217,7 @@
         \setcounter{enumi}{3}
         \only<2>{
           \item For each pair $(x, y)$ such that $x \in P_v$, and $y \in P_o$, If
-            $\mathbf{find}(x) = \mathbf{find}(y)$ but $\mathbf{congruent}(x, y) =
+            $\mathbf{find}(x) \neq \mathbf{find}(y)$ but $\mathbf{congruent}(x, y) =
             \mathbf{true}$,
             then $\mathbf{merge}(x, y)$.
         }
@@ -363,13 +365,17 @@
   \only<5>{ \haskellfile [firstline=13,lastline=16] {figure2.trace} }
   \only<6>{ \haskellfile [firstline=17,lastline=20] {figure2.trace} }
   \only<7>{ \haskellfile [firstline=21,lastline=21] {figure2.trace} }
-  \only<8>{ \haskellfile [firstline=22,lastline=23] {figure2.trace} }
+  \only<8>{ \haskellfile [firstline=21,lastline=23] {figure2.trace} }
 \end{frame}
 
 \begin{frame}[fragile]
   \frametitle{Example $a \neq b \land b \neq c \land c \neq a \land a = d \land d = e$ }
 
   \haskellfile[] {figure3.trace}
+
+  \pause
+
+  $T/_\sim = \{ \{ a,d,e \}, \{ b \}, \{ c \} \}$
 \end{frame}
 
 \section{Extension for LISP}
@@ -385,7 +391,7 @@
     \begin{align*}
       \car{\cons{x,y}} &= x \\
       \cdr{\cons{x,y}} &= y \\
-      \neg \atom{x} \subset \cons{\car{x}, \cons{x}} &= x \\
+      \neg \atom{x} \subset \cons{\car{x}, \cdr{x}} &= x \\
       \neg \atom{\cons{x,y}} &
     \end{align*} \quad
   \end{block}

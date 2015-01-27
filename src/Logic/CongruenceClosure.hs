@@ -97,9 +97,9 @@ merge gr (u,v) = do
     union u v
     tell [ Union gr u v ]
 
-    needsMerging <- filterM (notEquivalentButCongruent gr)
-                            [ (x,y) | x <- pu, y <- pv ]
-    traverse_ (merge gr) needsMerging
+    needMerging <- filterM (notEquivalentButCongruent gr)
+                           [ (x,y) | x <- pu, y <- pv ]
+    traverse_ (merge gr) needMerging
 
   where
     predOfAllVertEquivTo vert =
